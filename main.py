@@ -28,22 +28,26 @@ def check_directory_exists(path):
     if not os.path.exists(path):
         raise ValueError("{} does not exist".format(path))
 
-def mark_inconsistent(file, type, state):
+def mark_inconsistent(path, file, type, state):
     if type == "directory":
-        print("{}d {}".format(state, file))
+        print("{}d {}".format(state, os.path.join(path, file)))
     else:
-        print("{}f {}".format(state, file))
+        print("{}f {}".format(state, os.path.join(path, file)))
 
-def mark_delete(files_in_directory_dest):
+def mark_delete(dest, files_in_directory_dest):
     for file in files_in_directory_dest:
-        if os.path.isdir(file):
-            mark_inconsistent(file, "directory", "-")
+        if os.path.isdir(os.path.join(dest, file)):
+            mark_inconsistent(dest, file, "directory", "-")
         else:
-            mark_inconsistent(file, "file", "-")
+            mark_inconsistent(dest, file, "file", "-")
 
 def check_consistency(src, dest):
     files_in_directory_src = os.listdir(src)
-    files_in_directory_dest = os.listdir(dest)
+
+    try:
+        files_in_directory_dest = os.listdir(dest)
+    except FileNotFoundError:
+        files_in_directory_dest = []
 
     # if a file in src is not found
     for file in files_in_directory_src:
@@ -52,17 +56,18 @@ def check_consistency(src, dest):
             if file in files_in_directory_dest:
                 files_in_directory_dest.remove(file)
             else:
-                mark_inconsistent(file, "directory", "+")
+                mark_inconsistent(src, file, "directory", "+")
+            check_consistency(os.path.join(src, file), os.path.join(dest, file))
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
             if not (file_exists and filecmp.cmp(os.path.join(src, file), os.path.join(dest, file))):
-                mark_inconsistent(file, "file", "+")
+                mark_inconsistent(src, file, "file", "+")
             else:
                 files_in_directory_dest.remove(file)
 
     # the rest of the files in dest need to be deleted
-    mark_delete(files_in_directory_dest)
+    mark_delete(dest, files_in_directory_dest)
 
 
 

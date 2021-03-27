@@ -145,4 +145,25 @@ def test_hidden_files():
     shutil.rmtree("simpletest")
 
 def test_same_file_different_content():
-    pass
+    try:
+        shutil.rmtree("simpletest")
+    except FileNotFoundError:
+        pass
+
+    os.mkdir("simpletest")
+    os.mkdir("simpletest/1")
+    os.mkdir("simpletest/1/a")
+    f = open("simpletest/1/a/file1", "w+")
+    f.write("A")
+    f.close()
+
+    os.mkdir("simpletest/2")
+    os.mkdir("simpletest/2/b")
+    f = open("simpletest/2/b/file1", "w+")
+    f.write("B")
+    f.close()
+
+    outs, errs = _exec("simpletest/1/a", "simpletest/2/b")
+    assert outs == "+f simpletest/1/a/file1\n-f simpletest/2/b/file1\n"
+    assert errs == ""
+    shutil.rmtree("simpletest")

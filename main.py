@@ -61,7 +61,7 @@ def check_consistency(src, dest):
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
-            if not (file_exists and filecmp.cmp(os.path.join(src, file), os.path.join(dest, file))):
+            if not (file_exists and filecmp.cmp(os.path.join(src, file), os.path.join(dest, file), shallow=False)):
                 mark_inconsistent(src, file, "file", "+")
             else:
                 files_in_directory_dest.remove(file)

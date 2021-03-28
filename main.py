@@ -29,10 +29,11 @@ def check_directory_exists(path):
         raise ValueError("{} does not exist".format(path))
 
 def mark_inconsistent(path, file, type, state):
+    global buffer
     if type == "directory":
-        print("{}d {}".format(state, os.path.join(path, file)))
+        buffer.append("{}d {}".format(state, os.path.join(path, file)))
     else:
-        print("{}f {}".format(state, os.path.join(path, file)))
+        buffer.append("{}f {}".format(state, os.path.join(path, file)))
 
 def mark_delete(dest, files_in_directory_dest):
     for file in files_in_directory_dest:
@@ -41,7 +42,9 @@ def mark_delete(dest, files_in_directory_dest):
         else:
             mark_inconsistent(dest, file, "file", "-")
 
-def check_consistency(src, dest):
+def check_consistency(src, dest, verbose):
+    if verbose:
+        print("Processing {}".format(src))
     files_in_directory_src = os.listdir(src)
 
     try:
@@ -57,7 +60,7 @@ def check_consistency(src, dest):
                 files_in_directory_dest.remove(file)
             else:
                 mark_inconsistent(src, file, "directory", "+")
-            check_consistency(os.path.join(src, file), os.path.join(dest, file))
+            check_consistency(os.path.join(src, file), os.path.join(dest, file), verbose)
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
@@ -68,18 +71,20 @@ def check_consistency(src, dest):
 
     # the rest of the files in dest need to be deleted
     mark_delete(dest, files_in_directory_dest)
-
+    if verbose:
+        print("Finished {}".format(src))
 
 
 def main():
+    global buffer
+    buffer = []
     args = parse_args()
     check_directory_exists(args.src)
     check_directory_exists(args.dest)
 
-    check_consistency(args.src, args.dest)
+    check_consistency(args.src, args.dest, args.verbose)
+    [print(message) for message in buffer]
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     main()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/

@@ -93,7 +93,11 @@ def main():
     check_directory_exists(args.dest)
 
     check_consistency(args.src, args.dest, args.verbose)
-    [print_inconsistent(message) for message in buffer]
+    print("### Result ###")
+    if len(buffer) == 0:
+        print("Contents are identical.")
+    else:
+        [print_inconsistent(message) for message in buffer]
     if args.sync:
         print("Syncing...")
         synchronize()

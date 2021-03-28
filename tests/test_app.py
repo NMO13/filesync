@@ -46,7 +46,7 @@ def test_src_diverging_base():
     os.mkdir("simpletest/2/b/b1")
 
     outs, errs = _exec("simpletest/1/a", "simpletest/2/b")
-    assert outs == "+d simpletest/1/a/a1\n-d simpletest/2/b/b1\n"
+    assert "+d simpletest/1/a/a1\n-d simpletest/2/b/b1\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -75,7 +75,7 @@ def test_simple_diff_common_files():
     _create_structure(["1.txt", "2.txt"], ["2.txt", "3.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "+f simpletest/1/a/1.txt\n-f simpletest/2/a/3.txt\n"
+    assert "+f simpletest/1/a/1.txt\n-f simpletest/2/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -88,7 +88,7 @@ def test_simple_diff_common_dirs():
     _create_structure(["1.txt", "2.txt", "c/1c.txt"], ["2.txt", "3.txt", "c/1c.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "+f simpletest/1/a/1.txt\n-f simpletest/2/a/3.txt\n"
+    assert "+f simpletest/1/a/1.txt\n-f simpletest/2/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -101,7 +101,7 @@ def test_simple_diff_divergent_dirs():
     _create_structure(["1.txt", "2.txt", "c/1c.txt"], ["2.txt", "3.txt", "c/2c.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "+f simpletest/1/a/1.txt\n+f simpletest/1/a/c/1c.txt\n-f simpletest/2/a/c/2c.txt\n-f simpletest/2/a/3.txt\n"
+    assert "+f simpletest/1/a/1.txt\n+f simpletest/1/a/c/1c.txt\n-f simpletest/2/a/c/2c.txt\n-f simpletest/2/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -114,7 +114,7 @@ def test_empty_src():
     _create_structure([], ["2.txt", "3.txt", "c/2c.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "-f simpletest/2/a/2.txt\n-d simpletest/2/a/c\n-f simpletest/2/a/3.txt\n"
+    assert "-f simpletest/2/a/2.txt\n-d simpletest/2/a/c\n-f simpletest/2/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -127,7 +127,7 @@ def test_empty_dest():
     _create_structure(["2.txt", "3.txt", "c/2c.txt"], [])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "+f simpletest/1/a/2.txt\n+d simpletest/1/a/c\n+f simpletest/1/a/c/2c.txt\n+f simpletest/1/a/3.txt\n"
+    assert "+f simpletest/1/a/2.txt\n+d simpletest/1/a/c\n+f simpletest/1/a/c/2c.txt\n+f simpletest/1/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -140,7 +140,7 @@ def test_hidden_files():
     _create_structure(["1.txt", "2.txt", "c/1c.txt", "d/.1d.txt"], ["2.txt", "3.txt", "c/2c.txt", "e/1e.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert outs == "+f simpletest/1/a/1.txt\n+f simpletest/1/a/c/1c.txt\n-f simpletest/2/a/c/2c.txt\n+d simpletest/1/a/d\n+f simpletest/1/a/d/.1d.txt\n-d simpletest/2/a/e\n-f simpletest/2/a/3.txt\n"
+    assert "+f simpletest/1/a/1.txt\n+f simpletest/1/a/c/1c.txt\n-f simpletest/2/a/c/2c.txt\n+d simpletest/1/a/d\n+f simpletest/1/a/d/.1d.txt\n-d simpletest/2/a/e\n-f simpletest/2/a/3.txt\n" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -164,6 +164,19 @@ def test_same_file_different_content():
     f.close()
 
     outs, errs = _exec("simpletest/1/a", "simpletest/2/b")
-    assert outs == "+f simpletest/1/a/file1\n-f simpletest/2/b/file1\n"
+    assert "+f simpletest/1/a/file1\n-f simpletest/2/b/file1\n" in outs
+    assert errs == ""
+    shutil.rmtree("simpletest")
+
+def test_identical():
+    try:
+        shutil.rmtree("simpletest")
+    except FileNotFoundError:
+        pass
+
+    _create_structure(["1.txt", "2.txt", "c/1c.txt"], ["1.txt", "2.txt", "c/1c.txt"])
+    outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
+
+    assert "Contents are identical" in outs
     assert errs == ""
     shutil.rmtree("simpletest")

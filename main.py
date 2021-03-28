@@ -20,6 +20,8 @@ def parse_args():
     parser.add_argument("dest", type=str)
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="explain what is beeing done")
+    parser.add_argument('-s', '--sync', action='store_true',
+                        help="synchronize source with destination")
 
     # Parse the arguments
     return parser.parse_args()
@@ -31,9 +33,10 @@ def check_directory_exists(path):
 def mark_inconsistent(path, file, type, state):
     global buffer
     if type == "directory":
-        buffer.append("{}d {}".format(state, os.path.join(path, file)))
+        type = "d"
     else:
-        buffer.append("{}f {}".format(state, os.path.join(path, file)))
+        type = "f"
+    buffer.append((type, state, os.path.join(path, file)))
 
 def mark_delete(dest, files_in_directory_dest):
     for file in files_in_directory_dest:
@@ -74,6 +77,13 @@ def check_consistency(src, dest, verbose):
     if verbose:
         print("Finished {}".format(src))
 
+def print_inconsistent(message):
+    print("{}{} {}".format(message[1], message[0], message[2]))
+
+def synchronize():
+    global buffer
+    pass
+
 
 def main():
     global buffer
@@ -83,7 +93,10 @@ def main():
     check_directory_exists(args.dest)
 
     check_consistency(args.src, args.dest, args.verbose)
-    [print(message) for message in buffer]
+    [print_inconsistent(message) for message in buffer]
+    if args.sync:
+        print("Syncing...")
+        synchronize()
 
 if __name__ == '__main__':
     main()

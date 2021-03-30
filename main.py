@@ -151,9 +151,11 @@ def main():
         return
     else:
         print("Files to add:")
+        print("-------------")
         [print_inconsistent(message) for message in add_buffer]
 
-        print("Files to delete:")
+        print("\nFiles to delete:")
+        print("----------------")
         [print_inconsistent(message) for message in delete_buffer]
 
     if args.sync:

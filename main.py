@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 import filecmp
 
-buffer = []
+delete_buffer = []
+add_buffer = []
 base_src = ""
 base_dest = ""
 
@@ -30,14 +31,16 @@ def check_directory_exists(path):
 
 
 def mark_inconsistent(path, file, type, state, base):
-    global buffer
+    global add_buffer, delete_buffer
     if type == "directory":
         type = "d"
     else:
         type = "f"
     x = os.path.relpath(os.path.join(path, file), base)
-    buffer.append((type, state, x))
-
+    if state == "+":
+        add_buffer.append((type, state, x))
+    elif state == "-":
+        delete_buffer.append((type, state, x))
 
 def mark_delete(dest, files_in_directory_dest):
     for file in files_in_directory_dest:
@@ -92,8 +95,24 @@ def print_inconsistent(message):
 
 
 def synchronize(verbose):
-    global buffer
-    for p in buffer:
+    global add_buffer, delete_buffer
+    for p in delete_buffer:
+        # 1. delete stale directories
+        if p[0] == "d" and p[1] == "-":
+            import shutil
+
+            shutil.rmtree(os.path.join(base_dest, p[2]))
+            if verbose is True:
+                print("Deleted directory {}".format(p[2]))
+        # 2. delete stale files
+        elif p[0] == "f" and p[1] == "-":
+            import shutil
+
+            os.remove(os.path.join(base_dest, p[2]))
+            if verbose is True:
+                print("Deleted directory {}".format(p[2]))
+
+    for p in add_buffer:
         # 1. make new directories
         if p[0] == "d" and p[1] == "+":
             Path(os.path.join(base_dest, p[2])).mkdir(parents=True, exist_ok=True)
@@ -107,25 +126,12 @@ def synchronize(verbose):
             copyfile(os.path.join(base_src, p[2]), os.path.join(base_dest, p[2]))
             if verbose is True:
                 print("Deleted file {}".format(p[2]))
-        # 3. delete stale directories
-        elif p[0] == "d" and p[1] == "-":
-            import shutil
-
-            shutil.rmtree(os.path.join(base_dest, p[2]))
-            if verbose is True:
-                print("Deleted directory {}".format(p[2]))
-        # 4. delete stale files
-        elif p[0] == "f" and p[1] == "-":
-            import shutil
-
-            os.remove(os.path.join(base_dest, p[2]))
-            if verbose is True:
-                print("Deleted directory {}".format(p[2]))
 
 
 def main():
-    global buffer, base_src, base_dest
-    buffer = []
+    global  add_buffer, delete_buffer, base_src, base_dest
+    add_buffer = []
+    delete_buffer = []
     args = parse_args()
 
     check_directory_exists(args.src)
@@ -139,10 +145,16 @@ def main():
 
     check_consistency(args.src, args.dest, args.verbose)
     print("### Result ###")
-    if len(buffer) == 0:
+    if len(delete_buffer) == 0 and len(add_buffer) == 0:
         print("Contents are identical.")
+        print("Nothing to do.")
+        return
     else:
-        [print_inconsistent(message) for message in buffer]
+        print("Files to add:")
+        [print_inconsistent(message) for message in add_buffer]
+
+        print("Files to delete:")
+        [print_inconsistent(message) for message in delete_buffer]
 
     if args.sync:
         print("Syncing...")

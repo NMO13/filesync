@@ -37,7 +37,8 @@ def test_src_diverging_base():
     os.mkdir("simpletest/2/b/b1")
 
     outs, errs = _exec("simpletest/1/a", "simpletest/2/b")
-    assert "+d a1\n-d b1\n" in outs
+    assert "+d a1" in outs
+    assert "-d b1" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -83,7 +84,8 @@ def test_simple_diff_common_files():
     create_structure(["1.txt", "2.txt"], ["2.txt", "3.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert "+f 1.txt\n-f 3.txt\n" in outs
+    assert "+f 1.txt" in outs
+    assert "-f 3.txt" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -97,7 +99,8 @@ def test_simple_diff_common_dirs():
     create_structure(["1.txt", "2.txt", "c/1c.txt"], ["2.txt", "3.txt", "c/1c.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert "+f 1.txt\n-f 3.txt\n" in outs
+    assert "+f 1.txt" in outs
+    assert "-f 3.txt" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -111,7 +114,10 @@ def test_simple_diff_divergent_dirs():
     create_structure(["1.txt", "2.txt", "c/1c.txt"], ["2.txt", "3.txt", "c/2c.txt"])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert "+f 1.txt\n+f c/1c.txt\n-f c/2c.txt\n-f 3.txt\n" in outs
+    assert "+f 1.txt" in outs
+    assert "+f c/1c.txt" in outs
+    assert "-f c/2c.txt" in outs
+    assert "-f 3.txt" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -156,10 +162,13 @@ def test_hidden_files():
     )
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert (
-        "+f 1.txt\n+f c/1c.txt\n-f c/2c.txt\n+d d\n+f d/.1d.txt\n-d e\n-f 3.txt\n"
-        in outs
-    )
+    assert "+f 1.txt" in outs
+    assert "+f c/1c.txt" in outs
+    assert "-f c/2c.txt" in outs
+    assert "+d d" in outs
+    assert "+f d/.1d.txt" in outs
+    assert "-d e" in outs
+    assert "-f 3.txt" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -184,7 +193,8 @@ def test_same_file_different_content():
     f.close()
 
     outs, errs = _exec("simpletest/1/a", "simpletest/2/b")
-    assert "+f file1\n-f file1\n" in outs
+    assert "+f file1" in outs
+    assert "-f file1" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 

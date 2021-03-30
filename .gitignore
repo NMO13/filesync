@@ -1,1 +1,3 @@
 .idea
+*.sh
+tests/__pycache__/

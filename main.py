@@ -1,49 +1,51 @@
-import glob, os
+import os
+from pathlib import Path
 import filecmp
 
+buffer = []
+base_src = ""
+base_dest = ""
 
-def get_files_recursive(dir, all_files):
-    files_in_directory = glob.glob(os.path.join(dir, '*'))
-    files_in_directory.sort(key=lambda x: os.path.basename(x))
-    for file in files_in_directory:
-        if os.path.isdir(file):
-            all_files.append(file)
-            get_files_recursive(file, all_files)
-            print('Finished directory {}'.format(file))
-        else:
-            all_files.append(file)
 
 def parse_args():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("src", type=str)
     parser.add_argument("dest", type=str)
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help="explain what is beeing done")
-    parser.add_argument('-s', '--sync', action='store_true',
-                        help="synchronize source with destination")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="explain what is beeing done"
+    )
+    parser.add_argument(
+        "-s", "--sync", action="store_true", help="synchronize source with destination"
+    )
 
     # Parse the arguments
     return parser.parse_args()
+
 
 def check_directory_exists(path):
     if not os.path.exists(path):
         raise ValueError("{} does not exist".format(path))
 
-def mark_inconsistent(path, file, type, state):
+
+def mark_inconsistent(path, file, type, state, base):
     global buffer
     if type == "directory":
         type = "d"
     else:
         type = "f"
-    buffer.append((type, state, os.path.join(path, file)))
+    x = os.path.relpath(os.path.join(path, file), base)
+    buffer.append((type, state, x))
+
 
 def mark_delete(dest, files_in_directory_dest):
     for file in files_in_directory_dest:
         if os.path.isdir(os.path.join(dest, file)):
-            mark_inconsistent(dest, file, "directory", "-")
+            mark_inconsistent(dest, file, "directory", "-", base_dest)
         else:
-            mark_inconsistent(dest, file, "file", "-")
+            mark_inconsistent(dest, file, "file", "-", base_dest)
+
 
 def check_consistency(src, dest, verbose):
     if verbose:
@@ -62,13 +64,20 @@ def check_consistency(src, dest, verbose):
             if file in files_in_directory_dest:
                 files_in_directory_dest.remove(file)
             else:
-                mark_inconsistent(src, file, "directory", "+")
-            check_consistency(os.path.join(src, file), os.path.join(dest, file), verbose)
+                mark_inconsistent(src, file, "directory", "+", base_src)
+            check_consistency(
+                os.path.join(src, file), os.path.join(dest, file), verbose
+            )
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
-            if not (file_exists and filecmp.cmp(os.path.join(src, file), os.path.join(dest, file), shallow=False)):
-                mark_inconsistent(src, file, "file", "+")
+            if not (
+                file_exists
+                and filecmp.cmp(
+                    os.path.join(src, file), os.path.join(dest, file), shallow=False
+                )
+            ):
+                mark_inconsistent(src, file, "file", "+", base_src)
             else:
                 files_in_directory_dest.remove(file)
 
@@ -77,20 +86,56 @@ def check_consistency(src, dest, verbose):
     if verbose:
         print("Finished {}".format(src))
 
+
 def print_inconsistent(message):
     print("{}{} {}".format(message[1], message[0], message[2]))
 
-def synchronize():
+
+def synchronize(verbose):
     global buffer
-    pass
+    for p in buffer:
+        # 1. make new directories
+        if p[0] == "d" and p[1] == "+":
+            Path(os.path.join(base_dest, p[2])).mkdir(parents=True, exist_ok=True)
+            if verbose is True:
+                print("Created directory {}".format(p[2]))
+        # 2. make new files
+        elif p[0] == "f" and p[1] == "+":
+            from shutil import copyfile
+
+            # os.makedirs(os.path.dirname(os.path.join(base_dest, p[2])), exist_ok=True)
+            copyfile(os.path.join(base_src, p[2]), os.path.join(base_dest, p[2]))
+            if verbose is True:
+                print("Deleted file {}".format(p[2]))
+        # 3. delete stale directories
+        elif p[0] == "d" and p[1] == "-":
+            import shutil
+
+            shutil.rmtree(os.path.join(base_dest, p[2]))
+            if verbose is True:
+                print("Deleted directory {}".format(p[2]))
+        # 4. delete stale files
+        elif p[0] == "f" and p[1] == "-":
+            import shutil
+
+            os.remove(os.path.join(base_dest, p[2]))
+            if verbose is True:
+                print("Deleted directory {}".format(p[2]))
 
 
 def main():
-    global buffer
+    global buffer, base_src, base_dest
     buffer = []
     args = parse_args()
+
     check_directory_exists(args.src)
     check_directory_exists(args.dest)
+
+    base_src = args.src
+    base_dest = args.dest
+
+    if base_src == base_dest:
+        raise ValueError("Source and destination directories are equal.")
 
     check_consistency(args.src, args.dest, args.verbose)
     print("### Result ###")
@@ -98,10 +143,17 @@ def main():
         print("Contents are identical.")
     else:
         [print_inconsistent(message) for message in buffer]
+
     if args.sync:
         print("Syncing...")
-        synchronize()
+        synchronize(args.verbose)
+    else:
+        option = input("Do you want to synchronize now? [y/N] ")
+        if option == "y":
+            synchronize(args.verbose)
+        else:
+            print("Abort.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
-

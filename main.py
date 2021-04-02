@@ -110,7 +110,7 @@ def synchronize(verbose):
 
             os.remove(os.path.join(base_dest, p[2]))
             if verbose is True:
-                print("Deleted directory {}".format(p[2]))
+                print("Deleted file {}".format(p[2]))
 
     for p in add_buffer:
         # 1. make new directories
@@ -125,7 +125,7 @@ def synchronize(verbose):
             # os.makedirs(os.path.dirname(os.path.join(base_dest, p[2])), exist_ok=True)
             copyfile(os.path.join(base_src, p[2]), os.path.join(base_dest, p[2]))
             if verbose is True:
-                print("Deleted file {}".format(p[2]))
+                print("Created file {}".format(p[2]))
 
 
 def main():

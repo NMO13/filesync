@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
 import filecmp
+from multiprocessing import Process, Manager
 
-delete_buffer = []
-add_buffer = []
+
 base_src = ""
 base_dest = ""
 
@@ -14,6 +14,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("src", type=str)
     parser.add_argument("dest", type=str)
+    parser.add_argument(
+        "-a",
+        "--run_async",
+        action="store_true",
+        help="run diff analysis asynchronously",
+    )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="explain what is beeing done"
     )
@@ -30,8 +36,7 @@ def check_directory_exists(path):
         raise ValueError("{} does not exist".format(path))
 
 
-def mark_inconsistent(path, file, type, state, base):
-    global add_buffer, delete_buffer
+def mark_inconsistent(path, file, type, state, base, add_buffer, delete_buffer):
     if type == "directory":
         type = "d"
     else:
@@ -42,15 +47,20 @@ def mark_inconsistent(path, file, type, state, base):
     elif state == "-":
         delete_buffer.append((type, state, x))
 
-def mark_delete(dest, files_in_directory_dest):
+
+def mark_delete(dest, files_in_directory_dest, add_buffer, delete_buffer):
     for file in files_in_directory_dest:
         if os.path.isdir(os.path.join(dest, file)):
-            mark_inconsistent(dest, file, "directory", "-", base_dest)
+            mark_inconsistent(
+                dest, file, "directory", "-", base_dest, add_buffer, delete_buffer
+            )
         else:
-            mark_inconsistent(dest, file, "file", "-", base_dest)
+            mark_inconsistent(
+                dest, file, "file", "-", base_dest, add_buffer, delete_buffer
+            )
 
 
-def check_consistency(src, dest, verbose):
+def check_consistency(src, dest, verbose, add_buffer, delete_buffer):
     if verbose:
         print("Processing {}".format(src))
     files_in_directory_src = os.listdir(src)
@@ -60,6 +70,7 @@ def check_consistency(src, dest, verbose):
     except FileNotFoundError:
         files_in_directory_dest = []
 
+    process_list = []
     # if a file in src is not found
     for file in files_in_directory_src:
         if os.path.isdir(os.path.join(src, file)):
@@ -67,10 +78,24 @@ def check_consistency(src, dest, verbose):
             if file in files_in_directory_dest:
                 files_in_directory_dest.remove(file)
             else:
-                mark_inconsistent(src, file, "directory", "+", base_src)
-            check_consistency(
-                os.path.join(src, file), os.path.join(dest, file), verbose
+                mark_inconsistent(
+                    src, file, "directory", "+", base_src, add_buffer, delete_buffer
+                )
+            manager = Manager()
+            add_buffer_async = manager.list()
+            delete_buffer_async = manager.list()
+            p = Process(
+                target=check_consistency,
+                args=(
+                    os.path.join(src, file),
+                    os.path.join(dest, file),
+                    verbose,
+                    add_buffer_async,
+                    delete_buffer_async,
+                ),
             )
+            p.start()
+            process_list.append((p, add_buffer_async, delete_buffer_async))
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
@@ -80,22 +105,29 @@ def check_consistency(src, dest, verbose):
                     os.path.join(src, file), os.path.join(dest, file), shallow=False
                 )
             ):
-                mark_inconsistent(src, file, "file", "+", base_src)
+                mark_inconsistent(
+                    src, file, "file", "+", base_src, add_buffer, delete_buffer
+                )
             else:
                 files_in_directory_dest.remove(file)
 
     # the rest of the files in dest need to be deleted
-    mark_delete(dest, files_in_directory_dest)
+    mark_delete(dest, files_in_directory_dest, add_buffer, delete_buffer)
     if verbose:
         print("Finished {}".format(src))
+    for p in process_list:
+        p[0].join()
+
+    for p in process_list:
+        add_buffer.extend(p[1])
+        delete_buffer.extend(p[2])
 
 
 def print_inconsistent(message):
     print("{}{} {}".format(message[1], message[0], message[2]))
 
 
-def synchronize(verbose):
-    global add_buffer, delete_buffer
+def synchronize(verbose, add_buffer, delete_buffer):
     for p in delete_buffer:
         # 1. delete stale directories
         if p[0] == "d" and p[1] == "-":
@@ -129,9 +161,8 @@ def synchronize(verbose):
 
 
 def main():
-    global  add_buffer, delete_buffer, base_src, base_dest
-    add_buffer = []
-    delete_buffer = []
+    global base_src, base_dest
+
     args = parse_args()
 
     check_directory_exists(args.src)
@@ -143,7 +174,10 @@ def main():
     if base_src == base_dest:
         raise ValueError("Source and destination directories are equal.")
 
-    check_consistency(args.src, args.dest, args.verbose)
+    add_buffer, delete_buffer = analyse_diffs(
+        args.src, args.dest, args.verbose, args.run_async
+    )
+
     print("### Result ###")
     if len(delete_buffer) == 0 and len(add_buffer) == 0:
         print("Contents are identical.")
@@ -160,13 +194,34 @@ def main():
 
     if args.sync:
         print("Syncing...")
-        synchronize(args.verbose)
+        synchronize(args.verbose, add_buffer, delete_buffer)
     else:
         option = input("Do you want to synchronize now? [y/N] ")
         if option == "y":
-            synchronize(args.verbose)
+            synchronize(args.verbose, add_buffer, delete_buffer)
         else:
             print("Abort.")
+
+
+def analyse_diffs(src, dest, verbose, run_async):
+    add_buffer = []
+    delete_buffer = []
+    if run_async:
+        with Manager() as manager:
+            add_buffer_async = manager.list()
+            delete_buffer_async = manager.list()
+            p = Process(
+                target=check_consistency,
+                args=(src, dest, verbose, add_buffer_async, delete_buffer_async),
+            )
+            p.start()
+            p.join()
+            add_buffer = add_buffer_async[:]
+            delete_buffer = delete_buffer_async[:]
+    else:
+        check_consistency(src, dest, verbose, add_buffer, delete_buffer)
+
+    return add_buffer, delete_buffer
 
 
 if __name__ == "__main__":

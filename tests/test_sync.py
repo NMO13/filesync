@@ -69,14 +69,13 @@ def test_sync_files():
     assert not os.path.exists("simpletest/2/a/c/2c.txt")
     shutil.rmtree("simpletest")
 
+
 def test_sync_same_name():
     try:
         shutil.rmtree("simpletest")
     except FileNotFoundError:
         pass
-    create_structure(
-        ["1.txt", "2.txt"], ["1.txt", "2.txt"]
-    )
+    create_structure(["1.txt", "2.txt"], ["1.txt", "2.txt"])
     f = open("simpletest/1/a/1.txt", "w+")
     f.write("A")
     f.close()
@@ -86,4 +85,29 @@ def test_sync_same_name():
     _exec("simpletest/1/a", "simpletest/2/a")
     assert os.path.exists("simpletest/2/a/1.txt")
     assert os.path.exists("simpletest/2/a/2.txt")
+    shutil.rmtree("simpletest")
+
+
+def test_sync_async_diff():
+    from main import analyse_diffs
+
+    try:
+        shutil.rmtree("simpletest")
+    except FileNotFoundError:
+        pass
+
+    create_structure(
+        ["1.txt", "c/2.txt", "d/3.txt", "k/e/4.txt"],
+        ["1.txt", "2.txt", "3.txt", "g/h/5.txt"],
+    )
+    analyse_diffs("simpletest/1/a", "simpletest/2/a", False, True)
+
+    _exec("simpletest/1/a", "simpletest/2/a")
+    assert os.path.exists("simpletest/2/a/c/2.txt")
+    assert os.path.exists("simpletest/2/a/d/3.txt")
+    assert os.path.exists("simpletest/2/a/k/e/4.txt")
+    assert not os.path.exists("simpletest/2/a/2.txt")
+    assert not os.path.exists("simpletest/2/a/3.txt")
+    assert not os.path.exists("simpletest/2/a/g")
+
     shutil.rmtree("simpletest")

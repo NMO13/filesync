@@ -145,7 +145,10 @@ def test_empty_dest():
     create_structure(["2.txt", "3.txt", "c/2c.txt"], [])
     outs, errs = _exec("simpletest/1/a", "simpletest/2/a")
 
-    assert "+f 2.txt\n+d c\n+f c/2c.txt\n+f 3.txt\n" in outs
+    assert "+f 2.txt" in outs
+    assert "+d c" in outs
+    assert "+f c/2c.txt" in outs
+    assert "+f 3.txt" in outs
     assert errs == ""
     shutil.rmtree("simpletest")
 
@@ -210,4 +213,25 @@ def test_identical():
 
     assert "Contents are identical" in outs
     assert errs == ""
+    shutil.rmtree("simpletest")
+
+
+def test_find_diffs_async():
+    from main import analyse_diffs
+
+    try:
+        shutil.rmtree("simpletest")
+    except FileNotFoundError:
+        pass
+
+    create_structure(
+        ["1.txt", "c/2.txt", "d/3.txt", "k/e/4.txt"],
+        ["1.txt", "2.txt", "3.txt", "g/h/5.txt"],
+    )
+    add_buffer, delete_buffer = analyse_diffs(
+        "simpletest/1/a", "simpletest/2/a", False, True
+    )
+    assert len(add_buffer) == 7
+    assert len(delete_buffer) == 3
+
     shutil.rmtree("simpletest")

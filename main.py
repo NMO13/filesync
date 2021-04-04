@@ -197,12 +197,14 @@ def analyse_diffs(src, dest, verbose, _async):
     delete_buffer = []
     process_list = []
     if _async:
+        print("Starting diff analysis asynchronously")
         run_async(src, dest, verbose, process_list, "")
         process_list[0][0].join()
         add_buffer = process_list[0][1][:]
         delete_buffer = process_list[0][2][:]
     else:
-        check_consistency(src, dest, verbose, run_async, add_buffer, delete_buffer)
+        print("Starting diff analysis synchronously")
+        check_consistency(src, dest, verbose, False, add_buffer, delete_buffer)
 
     return add_buffer, delete_buffer
 

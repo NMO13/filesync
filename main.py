@@ -60,7 +60,7 @@ def mark_delete(dest, files_in_directory_dest, add_buffer, delete_buffer):
             )
 
 
-def check_consistency(src, dest, verbose, add_buffer, delete_buffer):
+def check_consistency(src, dest, verbose, _async, add_buffer, delete_buffer):
     if verbose:
         print("Processing {}".format(src))
     files_in_directory_src = os.listdir(src)
@@ -81,21 +81,10 @@ def check_consistency(src, dest, verbose, add_buffer, delete_buffer):
                 mark_inconsistent(
                     src, file, "directory", "+", base_src, add_buffer, delete_buffer
                 )
-            manager = Manager()
-            add_buffer_async = manager.list()
-            delete_buffer_async = manager.list()
-            p = Process(
-                target=check_consistency,
-                args=(
-                    os.path.join(src, file),
-                    os.path.join(dest, file),
-                    verbose,
-                    add_buffer_async,
-                    delete_buffer_async,
-                ),
-            )
-            p.start()
-            process_list.append((p, add_buffer_async, delete_buffer_async))
+            if _async:
+                run_async(src, dest, verbose, process_list, file)
+            else:
+                check_consistency(os.path.join(src, file), os.path.join(dest, file), verbose, _async, add_buffer, delete_buffer)
         else:
             # check if file can be found
             file_exists = file in files_in_directory_dest
@@ -203,26 +192,37 @@ def main():
             print("Abort.")
 
 
-def analyse_diffs(src, dest, verbose, run_async):
+def analyse_diffs(src, dest, verbose, _async):
     add_buffer = []
     delete_buffer = []
-    if run_async:
-        with Manager() as manager:
-            add_buffer_async = manager.list()
-            delete_buffer_async = manager.list()
-            p = Process(
-                target=check_consistency,
-                args=(src, dest, verbose, add_buffer_async, delete_buffer_async),
-            )
-            p.start()
-            p.join()
-            add_buffer = add_buffer_async[:]
-            delete_buffer = delete_buffer_async[:]
+    process_list = []
+    if _async:
+        run_async(src, dest, verbose, process_list, "")
+        process_list[0][0].join()
+        add_buffer = process_list[0][1][:]
+        delete_buffer = process_list[0][2][:]
     else:
-        check_consistency(src, dest, verbose, add_buffer, delete_buffer)
+        check_consistency(src, dest, verbose, run_async, add_buffer, delete_buffer)
 
     return add_buffer, delete_buffer
 
+def run_async(src, dest, verbose, process_list, file):
+    manager = Manager()
+    add_buffer_async = manager.list()
+    delete_buffer_async = manager.list()
+    p = Process(
+        target=check_consistency,
+        args=(
+            os.path.join(src, file),
+            os.path.join(dest, file),
+            verbose,
+            True,
+            add_buffer_async,
+            delete_buffer_async,
+        ),
+    )
+    p.start()
+    process_list.append((p, add_buffer_async, delete_buffer_async))
 
 if __name__ == "__main__":
     main()

@@ -88,7 +88,7 @@ def test_sync_same_name():
     shutil.rmtree("simpletest")
 
 
-def test_sync_async_diff():
+def test_sync_diff():
     from main import analyse_diffs
 
     try:
@@ -100,7 +100,7 @@ def test_sync_async_diff():
         ["1.txt", "c/2.txt", "d/3.txt", "k/e/4.txt"],
         ["1.txt", "2.txt", "3.txt", "g/h/5.txt"],
     )
-    analyse_diffs("simpletest/1/a", "simpletest/2/a", False, True)
+    analyse_diffs("simpletest/1/a", "simpletest/2/a", False)
 
     _exec("simpletest/1/a", "simpletest/2/a")
     assert os.path.exists("simpletest/2/a/c/2.txt")

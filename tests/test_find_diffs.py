@@ -229,7 +229,7 @@ def test_find_diffs_async():
         ["1.txt", "2.txt", "3.txt", "g/h/5.txt"],
     )
     add_buffer, delete_buffer = analyse_diffs(
-        "simpletest/1/a", "simpletest/2/a", False, True
+        "simpletest/1/a", "simpletest/2/a", False
     )
     assert len(add_buffer) == 7
     assert len(delete_buffer) == 3

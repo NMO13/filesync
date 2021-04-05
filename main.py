@@ -172,6 +172,7 @@ def main():
         option = input("Do you want to synchronize now? [y/N] ")
         if option == "y":
             synchronize(args.verbose, add_buffer, delete_buffer)
+            print("Synchronization finished.")
         else:
             print("Abort.")
 
@@ -179,7 +180,7 @@ def main():
 def analyse_diffs(src, dest, verbose):
     add_buffer = []
     delete_buffer = []
-    print("Starting diff analysis synchronously")
+    print("Starting diff analysis...")
     check_consistency(src, dest, verbose, add_buffer, delete_buffer)
 
     return add_buffer, delete_buffer
